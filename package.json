@@ -1,6 +1,6 @@
 {
   "name": "slidev-addon-live-reactions",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "scripts": {
     "dev": "slidev example.md --open",
     "build": "slidev build example.md",

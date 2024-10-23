@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from "vue";
 
-import { configs, useNav } from '@slidev/client'
+import { configs, useNav } from "@slidev/client";
 
-
-const { isPresenter, slides, currentPage} = useNav();
+const { isPresenter, slides, currentPage } = useNav();
 
 enum ConnectionStatus {
   CONNECTED,
@@ -20,36 +19,36 @@ enum SendType {
 interface ReactionState {
   mtype: SendType.REACTIONS;
   emoji: string;
-  type: 'broadcast'
-  page: number | string
+  type: "broadcast";
+  page: number | string;
   slideTitle: string;
-  feedback: 'okay' | 'good' | 'great' | 'mindBlown'
+  feedback: "okay" | "good" | "great" | "mindBlown";
 }
 
 interface AnimatedEmojiData {
-  id: number
-  emoji: string
-  x: number
-  delay: number
+  id: number;
+  emoji: string;
+  x: number;
+  delay: number;
 }
 
-
-type SendState = ReactionState
+type SendState = ReactionState;
 
 let webSocket: WebSocket;
 
-const connectState = ref<ConnectionStatus>(ConnectionStatus.DISCONNECTED)
-const animatedEmojis = ref<AnimatedEmojiData[]>([])
-let emojiCounter = 0
+const connectState = ref<ConnectionStatus>(ConnectionStatus.DISCONNECTED);
+const animatedEmojis = ref<AnimatedEmojiData[]>([]);
+let emojiCounter = 0;
 
 // Get WS server from th config
 function getWsServer() {
-  const wsServer = configs.liveReactions.server;
-  const title = configs.title
-  if (wsServer) {
-    return wsServer+`/${title}`
-  }
-  return "ws://localhost:8787"
+  const wsServer =
+    configs.liveReactions.server
+      .replace("http://", "ws://")
+      .replace("https://", "wss://")
+      .replace(/\/+$/, "") || "ws://localhost:8787";
+  const title = configs.title;
+  return wsServer + `/ws/${title}`;
 }
 
 // Initialize the WebSocket connection
@@ -68,18 +67,16 @@ function initWebSocket() {
 function closeWebSocket() {
   if (webSocket) {
     connectState.value = ConnectionStatus.DISCONNECTED;
-    webSocket.close()
+    webSocket.close();
   } else {
     connectState.value = ConnectionStatus.DISCONNECTED;
   }
 }
 
-
 // Handle WebSocket onOpen event
 function onOpen() {
   connectState.value = ConnectionStatus.CONNECTED;
-  console.log('WebSocket connected')
-
+  console.log("WebSocket connected");
 }
 
 // Handle WebSocket onClose event
@@ -93,59 +90,61 @@ function onClose() {
 
 // Handle WebSocket onMessage event
 function onMessage(event) {
-  const {emoji, mtype, type, page } = JSON.parse(event.data) as ReactionState;
+  const { emoji, mtype, type, page } = JSON.parse(event.data) as ReactionState;
 
   // check if it is a presenter
-  if(!isPresenter.value && type === 'broadcast') {
-    if(mtype === SendType.REACTIONS && page === currentPage.value) {
-    addAnimatedEmoji(emoji)
+  if (!isPresenter.value && type === "broadcast") {
+    if (mtype === SendType.REACTIONS && page === currentPage.value) {
+      addAnimatedEmoji(emoji);
     }
   }
-
 }
 
 // send reactions to the server
 function sendReaction(emojiKey: keyof ReturnType<typeof getEmoji>) {
-  const page = currentPage.value
-  const slideTitle = slides.value[page -1].meta.slide.title
+  const page = currentPage.value;
+  const slideTitle = slides.value[page - 1].meta.slide.title;
   if (connectState.value === ConnectionStatus.CONNECTED) {
-    const emojis = getEmoji()
-    const emoji = emojis[emojiKey]
+    const emojis = getEmoji();
+    const emoji = emojis[emojiKey];
     const reactionState: SendState = {
       mtype: SendType.REACTIONS,
       emoji,
-      type: 'broadcast',
+      type: "broadcast",
       page: page,
       slideTitle: slideTitle,
-      feedback: emojiKey
-    }
-    webSocket.send(JSON.stringify(reactionState))
-    addAnimatedEmoji(emoji)
+      feedback: emojiKey,
+    };
+    webSocket.send(JSON.stringify(reactionState));
+    addAnimatedEmoji(emoji);
   }
 }
 
 // Add animated emoji to the screen
 function addAnimatedEmoji(emoji: string) {
-  const x = Math.random() * (window.innerWidth - 50)
-  const delay = Math.random() * 500 // Random delay for natural effect
-  const newEmoji = { id: emojiCounter++, emoji, x, delay }
-  animatedEmojis.value.push(newEmoji)
+  const x = Math.random() * (window.innerWidth - 50);
+  const delay = Math.random() * 500; // Random delay for natural effect
+  const newEmoji = { id: emojiCounter++, emoji, x, delay };
+  animatedEmojis.value.push(newEmoji);
   setTimeout(() => {
-    animatedEmojis.value = animatedEmojis.value.filter(e => e.id !== newEmoji.id)
-  }, 3000) // Increased to account for animation duration
+    animatedEmojis.value = animatedEmojis.value.filter(
+      (e) => e.id !== newEmoji.id
+    );
+  }, 3000); // Increased to account for animation duration
 }
 
 function getEmoji() {
-  const okay = configs.liveReactions.okay
-  const good = configs.liveReactions.good
-  const great = configs.liveReactions.great
-  const mindBlown = configs.liveReactions.mindBlown
+  const reactions = configs.liveReactions || {};
+  const okay = reactions.okay || "👀";
+  const good = reactions.good || "👍";
+  const great = reactions.great || "❤️";
+  const mindBlown = reactions.mindBlown || "🤯";
   return {
-    okay: okay,
-    good: good,
-    great: great,
-    mindBlown: mindBlown
-  }
+    okay,
+    good,
+    great,
+    mindBlown,
+  };
 }
 
 onMounted(() => {
@@ -153,25 +152,30 @@ onMounted(() => {
     return;
   }
   initWebSocket();
-})
+});
 
 onUnmounted(() => {
   closeWebSocket();
-})
-
+});
 </script>
 
 <template>
   <div v-if="!isPresenter" class="reaction-buttons">
-    <button v-for="(emoji, key) in getEmoji()" :key="key" @click="sendReaction(key)">
+    <button
+      v-for="(emoji, key) in getEmoji()"
+      :key="key"
+      @click="sendReaction(key)"
+    >
       {{ emoji }}
     </button>
   </div>
   <div class="emoji-container">
-    <div v-for="emoji in animatedEmojis" 
-         :key="emoji.id" 
-         class="animated-emoji"
-         :style="{ left: `${emoji.x}px`, animationDelay: `${emoji.delay}ms` }">
+    <div
+      v-for="emoji in animatedEmojis"
+      :key="emoji.id"
+      class="animated-emoji"
+      :style="{ left: `${emoji.x}px`, animationDelay: `${emoji.delay}ms` }"
+    >
       {{ emoji.emoji }}
     </div>
   </div>
