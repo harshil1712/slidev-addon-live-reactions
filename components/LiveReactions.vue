@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, onMounted, onUnmounted, watch } from "vue";
 
 import { configs, useNav } from "@slidev/client";
 
-const { isPresenter, slides, currentPage } = useNav();
+const { isPresenter, slides, currentPage, queryClicks, go } = useNav();
 
 enum ConnectionStatus {
   CONNECTED,
@@ -14,6 +14,14 @@ enum ConnectionStatus {
 
 enum SendType {
   REACTIONS = "reactions",
+  SLIDEUPDATE = "slideupdate",
+}
+
+interface SlideUpdateState {
+  mtype: SendType.SLIDEUPDATE;
+  page: number | string;
+  click: number;
+  type: "broadcast";
 }
 
 interface ReactionState {
@@ -32,7 +40,7 @@ interface AnimatedEmojiData {
   delay: number;
 }
 
-type SendState = ReactionState;
+type SendState = ReactionState | SlideUpdateState;
 
 let webSocket: WebSocket;
 
@@ -90,11 +98,18 @@ function onClose() {
 
 // Handle WebSocket onMessage event
 function onMessage(event) {
-  const { emoji, mtype, type, page } = JSON.parse(event.data) as ReactionState;
+  const { mtype, type, page } = JSON.parse(event.data) as
+    | ReactionState
+    | SlideUpdateState;
 
   // check if it is a presenter
   if (!isPresenter.value && type === "broadcast") {
+    if (mtype === SendType.SLIDEUPDATE) {
+      const { click } = JSON.parse(event.data) as SlideUpdateState;
+      go(page, click);
+    }
     if (mtype === SendType.REACTIONS && page === currentPage.value) {
+      const { emoji } = JSON.parse(event.data) as ReactionState;
       addAnimatedEmoji(emoji);
     }
   }
@@ -117,6 +132,19 @@ function sendReaction(emojiKey: keyof ReturnType<typeof getEmoji>) {
     };
     webSocket.send(JSON.stringify(reactionState));
     addAnimatedEmoji(emoji);
+  }
+}
+
+// send slide updates
+function broadcastSlideUpdate(currentPage: number, clicks: number) {
+  if (connectState.value === ConnectionStatus.CONNECTED) {
+    const slideUpdateState: SlideUpdateState = {
+      mtype: SendType.SLIDEUPDATE,
+      page: currentPage,
+      click: clicks,
+      type: "broadcast",
+    };
+    webSocket.send(JSON.stringify(slideUpdateState));
   }
 }
 
@@ -152,6 +180,12 @@ onMounted(() => {
     return;
   }
   initWebSocket();
+});
+
+watch([currentPage, queryClicks], (newPage) => {
+  if (isPresenter.value) {
+    broadcastSlideUpdate(currentPage.value, queryClicks.value);
+  }
 });
 
 onUnmounted(() => {

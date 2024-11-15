@@ -3,7 +3,7 @@ theme: default
 title: My Example Presentation
 
 liveReactions:
-  server: ws://localhost:8787/ws
+  server: ws://localhost:8787
   okay: 👀
   good: 👍
   great: ❤️
@@ -17,6 +17,12 @@ This is the first slide
 
 # Page 2
 Oh, look! Second slide!
+
+<v-clicks>
+
+- One
+- Two
+</v-clicks>
 ---
 
 # Page 3
