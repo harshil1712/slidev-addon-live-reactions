@@ -106,6 +106,7 @@ function onMessage(event) {
   if (!isPresenter.value && type === "broadcast") {
     if (mtype === SendType.SLIDEUPDATE) {
       const { click } = JSON.parse(event.data) as SlideUpdateState;
+      console.log("Slide update received", page, click);
       go(page, click);
     }
     if (mtype === SendType.REACTIONS && page === currentPage.value) {
@@ -119,7 +120,7 @@ function onMessage(event) {
 function sendReaction(emojiKey: keyof ReturnType<typeof getEmoji>) {
   const page = currentPage.value;
   const slideTitle = slides.value[page - 1].meta.slide.title;
-  if (connectState.value === ConnectionStatus.CONNECTED) {
+  if (connectState.value === ConnectionStatus.CONNECTED && !isPresenter.value) {
     const emojis = getEmoji();
     const emoji = emojis[emojiKey];
     const reactionState: SendState = {
@@ -137,7 +138,7 @@ function sendReaction(emojiKey: keyof ReturnType<typeof getEmoji>) {
 
 // send slide updates
 function broadcastSlideUpdate(currentPage: number, clicks: number) {
-  if (connectState.value === ConnectionStatus.CONNECTED) {
+  if (connectState.value === ConnectionStatus.CONNECTED && isPresenter.value) {
     const slideUpdateState: SlideUpdateState = {
       mtype: SendType.SLIDEUPDATE,
       page: currentPage,
@@ -176,9 +177,6 @@ function getEmoji() {
 }
 
 onMounted(() => {
-  if (isPresenter.value) {
-    return;
-  }
   initWebSocket();
 });
 
